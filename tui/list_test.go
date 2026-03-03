@@ -216,3 +216,79 @@ func TestListUpdate_NormalEnterWithNoFilesIsNoop(t *testing.T) {
 		t.Error("enter on empty list should return nil cmd")
 	}
 }
+
+// ── search focus switching ─────────────────────────────────────────────────────
+
+func TestListUpdate_TabSwitchesFromInputToTable(t *testing.T) {
+	m := newListWithBooks(t, makeBooks())
+	// activate search — input is focused
+	m, _ = m.Update(runeKey('/'))
+	if !m.search.Focused() {
+		t.Fatal("search input should be focused after '/'")
+	}
+	// Tab moves focus to table
+	m, _ = m.Update(tabKey())
+	if m.search.Focused() {
+		t.Error("search input should be blurred after Tab")
+	}
+	if !m.searching {
+		t.Error("searching should still be true after Tab")
+	}
+}
+
+func TestListUpdate_TabSwitchesFromTableToInput(t *testing.T) {
+	m := newListWithBooks(t, makeBooks())
+	m, _ = m.Update(runeKey('/'))
+	m, _ = m.Update(tabKey()) // input → table
+	if m.search.Focused() {
+		t.Fatal("expected table focus after first Tab")
+	}
+	m, _ = m.Update(tabKey()) // table → input
+	if !m.search.Focused() {
+		t.Error("search input should be focused after second Tab")
+	}
+}
+
+func TestListUpdate_ShiftTabAlsoSwitchesFocus(t *testing.T) {
+	m := newListWithBooks(t, makeBooks())
+	m, _ = m.Update(runeKey('/'))
+	// shift+tab from input should also move to table
+	m, _ = m.Update(shiftTabKey())
+	if m.search.Focused() {
+		t.Error("search input should be blurred after Shift+Tab")
+	}
+}
+
+func TestListUpdate_EscClearsSearchWhenTableFocused(t *testing.T) {
+	m := newListWithBooks(t, makeBooks())
+	m, _ = m.Update(runeKey('/'))
+	m.search.SetValue("dune")
+	m.applyFilter("dune")
+	m, _ = m.Update(tabKey()) // move to table
+	// Esc should still clear search
+	m, _ = m.Update(escKey())
+	if m.searching {
+		t.Error("searching should be false after Esc even when table was focused")
+	}
+	if len(m.filtered) != 3 {
+		t.Errorf("filtered len = %d, want 3 after Esc", len(m.filtered))
+	}
+}
+
+func TestListUpdate_EnterSelectsWhenTableFocused(t *testing.T) {
+	m := newListWithBooks(t, makeBooks())
+	m, _ = m.Update(runeKey('/'))
+	m.search.SetValue("dune")
+	m.applyFilter("dune")
+	m, _ = m.Update(tabKey()) // move to table
+	_, cmd := m.Update(enterKey())
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd when Enter pressed from table focus")
+	}
+	if _, ok := cmd().(editMsg); !ok {
+		t.Error("expected editMsg from Enter when table is focused")
+	}
+}
+
+func tabKey() tea.KeyMsg      { return tea.KeyMsg{Type: tea.KeyTab} }
+func shiftTabKey() tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyShiftTab} }

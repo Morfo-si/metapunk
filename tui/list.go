@@ -140,6 +140,13 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 				m.search.SetValue("")
 				m.applyFilter("")
 				return m, nil
+			case "tab", "shift+tab":
+				if m.search.Focused() {
+					m.search.Blur()
+				} else {
+					return m, m.search.Focus()
+				}
+				return m, nil
 			case "enter":
 				if len(m.filtered) == 0 {
 					return m, nil
@@ -151,10 +158,14 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 				selected := m.filtered[cursor]
 				return m, func() tea.Msg { return editMsg{metadata: selected} }
 			default:
-				var cmd tea.Cmd
-				m.search, cmd = m.search.Update(msg)
-				m.applyFilter(m.search.Value())
-				return m, cmd
+				if m.search.Focused() {
+					var cmd tea.Cmd
+					m.search, cmd = m.search.Update(msg)
+					m.applyFilter(m.search.Value())
+					return m, cmd
+				}
+				// Table is focused: fall through to m.table.Update so
+				// arrow keys navigate the filtered results.
 			}
 		}
 
@@ -210,7 +221,11 @@ func (m ListModel) View() string {
 	var searchBar string
 	if m.searching {
 		label := searchLabelStyle.Render("Search: ")
-		input := searchBarStyle.Render(m.search.View())
+		barStyle := searchBarStyle
+		if !m.search.Focused() {
+			barStyle = searchBarBlurredStyle
+		}
+		input := barStyle.Render(m.search.View())
 		searchBar = lipgloss.JoinHorizontal(lipgloss.Center, label, input)
 	}
 
@@ -234,7 +249,11 @@ func (m ListModel) View() string {
 
 	var help string
 	if m.searching {
-		help = helpStyle.Render("type to filter  enter edit  esc clear search")
+		if m.search.Focused() {
+			help = helpStyle.Render("type to filter  tab → results  esc clear")
+		} else {
+			help = helpStyle.Render("↑/↓ navigate  enter edit  tab → search  esc clear")
+		}
 	} else {
 		help = helpStyle.Render("↑/k up  ↓/j down  enter edit  / search  r reload  q quit")
 	}

@@ -53,6 +53,11 @@ var (
 			BorderForeground(purple).
 			Padding(0, 1)
 
+	searchBarBlurredStyle = lipgloss.NewStyle().
+				BorderStyle(lipgloss.NormalBorder()).
+				BorderForeground(subtle).
+				Padding(0, 1)
+
 	searchLabelStyle = lipgloss.NewStyle().
 				Foreground(purple).
 				Bold(true)

@@ -110,12 +110,24 @@ metapunk
 
 #### Search mode
 
+Search has two focus states toggled with `Tab`:
+
+**Input focused** (purple border — default when search opens):
+
 | Key | Action |
 |-----|--------|
 | *(type)* | Filter by title or author (case-insensitive, partial match) |
-| `Enter` | Edit the highlighted result |
+| `Tab` / `Shift+Tab` | Move focus to the results table |
 | `Esc` | Clear search and return to full list |
-| `Ctrl+C` | Quit |
+
+**Table focused** (dim border — after pressing `Tab`):
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate filtered results |
+| `Enter` | Edit the highlighted result |
+| `Tab` / `Shift+Tab` | Move focus back to search input |
+| `Esc` | Clear search and return to full list |
 
 #### Editor view
 
