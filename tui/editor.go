@@ -25,6 +25,10 @@ type saveErrMsg struct {
 const (
 	fieldTitle = iota
 	fieldAuthor
+	fieldPublisher
+	fieldLanguage
+	fieldDescription
+	fieldSubject
 	numFields
 )
 
@@ -38,22 +42,28 @@ type EditorModel struct {
 }
 
 func NewEditorModel(m epub.Metadata) EditorModel {
-	titleInput := textinput.New()
-	titleInput.Placeholder = "Book title"
-	titleInput.SetValue(m.Title)
-	titleInput.Focus()
-	titleInput.Width = 50
-	titleInput.Prompt = ""
+	make := func(placeholder, value string) textinput.Model {
+		ti := textinput.New()
+		ti.Placeholder = placeholder
+		ti.SetValue(value)
+		ti.Width = 46
+		ti.Prompt = ""
+		return ti
+	}
 
-	authorInput := textinput.New()
-	authorInput.Placeholder = "Author name"
-	authorInput.SetValue(m.Author)
-	authorInput.Width = 50
-	authorInput.Prompt = ""
+	inputs := [numFields]textinput.Model{
+		fieldTitle:       make("Book title", m.Title),
+		fieldAuthor:      make("Author name", m.Author),
+		fieldPublisher:   make("Publisher", m.Publisher),
+		fieldLanguage:    make("e.g. en, fr, de", m.Language),
+		fieldDescription: make("Short description or blurb", m.Description),
+		fieldSubject:     make("e.g. Science Fiction, Fantasy", m.Subject),
+	}
+	inputs[fieldTitle].Focus()
 
 	return EditorModel{
 		original: m,
-		inputs:   [numFields]textinput.Model{titleInput, authorInput},
+		inputs:   inputs,
 		focused:  fieldTitle,
 	}
 }
@@ -76,9 +86,13 @@ func (e EditorModel) Update(msg tea.Msg) (EditorModel, tea.Cmd) {
 			e.saving = true
 			e.errMsg = ""
 			updated := epub.Metadata{
-				FilePath: e.original.FilePath,
-				Title:    e.inputs[fieldTitle].Value(),
-				Author:   e.inputs[fieldAuthor].Value(),
+				FilePath:    e.original.FilePath,
+				Title:       e.inputs[fieldTitle].Value(),
+				Author:      e.inputs[fieldAuthor].Value(),
+				Publisher:   e.inputs[fieldPublisher].Value(),
+				Language:    e.inputs[fieldLanguage].Value(),
+				Description: e.inputs[fieldDescription].Value(),
+				Subject:     e.inputs[fieldSubject].Value(),
 			}
 			return e, saveCmd(updated)
 
@@ -103,19 +117,25 @@ func (e EditorModel) Update(msg tea.Msg) (EditorModel, tea.Cmd) {
 	return e, cmd
 }
 
+var fieldLabels = [numFields]string{
+	fieldTitle:       "Title",
+	fieldAuthor:      "Author",
+	fieldPublisher:   "Publisher",
+	fieldLanguage:    "Language",
+	fieldDescription: "Description",
+	fieldSubject:     "Subject",
+}
+
 func (e EditorModel) View() string {
 	filename := filepath.Base(e.original.FilePath)
-
 	heading := editorTitleStyle.Render("Editing: " + filename)
 
-	titleLabel := labelStyle.Render("Title")
-	authorLabel := labelStyle.Render("Author")
-
-	titleBox := inputBox(e.inputs[fieldTitle], e.focused == fieldTitle)
-	authorBox := inputBox(e.inputs[fieldAuthor], e.focused == fieldAuthor)
-
-	titleRow := lipgloss.JoinHorizontal(lipgloss.Center, titleLabel, titleBox)
-	authorRow := lipgloss.JoinHorizontal(lipgloss.Center, authorLabel, authorBox)
+	rows := make([]string, numFields)
+	for i := range e.inputs {
+		label := labelStyle.Render(fieldLabels[i])
+		box := inputBox(e.inputs[i], e.focused == i)
+		rows[i] = lipgloss.JoinHorizontal(lipgloss.Center, label, box)
+	}
 
 	var statusLine string
 	if e.saving {
@@ -124,19 +144,16 @@ func (e EditorModel) View() string {
 		statusLine = statusErrStyle.Render("✗ " + e.errMsg)
 	}
 
-	help := helpStyle.Render("tab next field  shift+tab prev  ctrl+s save  esc cancel")
+	help := helpStyle.Render("tab next  shift+tab prev  ctrl+s save  esc cancel")
 
-	inner := lipgloss.JoinVertical(lipgloss.Left,
-		heading,
-		titleRow,
-		authorRow,
-	)
+	parts := []string{heading}
+	parts = append(parts, rows[:]...)
 	if statusLine != "" {
-		inner = lipgloss.JoinVertical(lipgloss.Left, inner, statusLine)
+		parts = append(parts, statusLine)
 	}
-	inner = lipgloss.JoinVertical(lipgloss.Left, inner, help)
+	parts = append(parts, help)
 
-	return editorPanelStyle.Render(inner)
+	return editorPanelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 
 // syncFocus updates focus state across all inputs.

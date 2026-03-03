@@ -17,6 +17,7 @@ const containerXML = `<?xml version="1.0" encoding="UTF-8"?>
   </rootfiles>
 </container>`
 
+// opfXML builds a minimal OPF with only title and author.
 func opfXML(title, author string) string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0">
@@ -27,8 +28,29 @@ func opfXML(title, author string) string {
 </package>`
 }
 
+// opfXMLFull builds an OPF with all supported metadata fields.
+func opfXMLFull(m Metadata) string {
+	return `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>` + m.Title + `</dc:title>
+    <dc:creator opf:role="aut">` + m.Author + `</dc:creator>
+    <dc:publisher>` + m.Publisher + `</dc:publisher>
+    <dc:language>` + m.Language + `</dc:language>
+    <dc:description>` + m.Description + `</dc:description>
+    <dc:subject>` + m.Subject + `</dc:subject>
+  </metadata>
+</package>`
+}
+
 // buildTestEPUB creates a minimal valid epub in a temp dir and returns its path.
 func buildTestEPUB(t *testing.T, title, author string) string {
+	t.Helper()
+	return buildTestEPUBFull(t, Metadata{Title: title, Author: author})
+}
+
+// buildTestEPUBFull creates an epub with all supported metadata fields.
+func buildTestEPUBFull(t *testing.T, m Metadata) string {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.epub")
@@ -49,7 +71,11 @@ func buildTestEPUB(t *testing.T, title, author string) string {
 
 	add("mimetype", "application/epub+zip")
 	add("META-INF/container.xml", containerXML)
-	add("OEBPS/content.opf", opfXML(title, author))
+	if m.Publisher != "" || m.Language != "" || m.Description != "" || m.Subject != "" {
+		add("OEBPS/content.opf", opfXMLFull(m))
+	} else {
+		add("OEBPS/content.opf", opfXML(m.Title, m.Author))
+	}
 
 	if err := w.Close(); err != nil {
 		t.Fatalf("close zip: %v", err)
@@ -185,7 +211,7 @@ func TestInjectElementEscapesValue(t *testing.T) {
 
 func TestPatchOPF_Replace(t *testing.T) {
 	orig := []byte(opfXML("Old Title", "Old Author"))
-	out, err := patchOPF(orig, "New Title", "New Author")
+	out, err := patchOPF(orig, Metadata{Title: "New Title", Author: "New Author"})
 	if err != nil {
 		t.Fatalf("patchOPF: %v", err)
 	}
@@ -202,7 +228,7 @@ func TestPatchOPF_Replace(t *testing.T) {
 
 func TestPatchOPF_EmptyAuthorSkipped(t *testing.T) {
 	orig := []byte(opfXML("Title", "Original Author"))
-	out, err := patchOPF(orig, "Title", "")
+	out, err := patchOPF(orig, Metadata{Title: "Title"})
 	if err != nil {
 		t.Fatalf("patchOPF: %v", err)
 	}
@@ -218,12 +244,38 @@ func TestPatchOPF_InjectMissingTitle(t *testing.T) {
     <dc:creator>Author</dc:creator>
   </metadata>
 </package>`
-	out, err := patchOPF([]byte(noTitle), "Injected Title", "")
+	out, err := patchOPF([]byte(noTitle), Metadata{Title: "Injected Title"})
 	if err != nil {
 		t.Fatalf("patchOPF: %v", err)
 	}
 	if !bytes.Contains(out, []byte("Injected Title")) {
 		t.Errorf("title was not injected:\n%s", out)
+	}
+}
+
+func TestPatchOPF_AllFields(t *testing.T) {
+	orig := []byte(opfXMLFull(Metadata{
+		Title: "Old", Author: "Old", Publisher: "Old Publisher",
+		Language: "fr", Description: "Old desc", Subject: "Old subject",
+	}))
+	m := Metadata{
+		Title:       "New Title",
+		Author:      "New Author",
+		Publisher:   "New Publisher",
+		Language:    "en",
+		Description: "New description",
+		Subject:     "New subject",
+	}
+	out, err := patchOPF(orig, m)
+	if err != nil {
+		t.Fatalf("patchOPF: %v", err)
+	}
+	for _, want := range []string{
+		"New Title", "New Author", "New Publisher", "en", "New description", "New subject",
+	} {
+		if !bytes.Contains(out, []byte(want)) {
+			t.Errorf("expected %q in patched OPF:\n%s", want, out)
+		}
 	}
 }
 
@@ -243,6 +295,40 @@ func TestReadMetadata(t *testing.T) {
 	}
 	if m.FilePath != path {
 		t.Errorf("FilePath = %q, want %q", m.FilePath, path)
+	}
+}
+
+func TestReadMetadata_AllFields(t *testing.T) {
+	original := Metadata{
+		Title:       "Dune",
+		Author:      "Frank Herbert",
+		Publisher:   "Chilton Books",
+		Language:    "en",
+		Description: "Epic science fiction novel set in the far future.",
+		Subject:     "Science Fiction",
+	}
+	path := buildTestEPUBFull(t, original)
+	m, err := ReadMetadata(path)
+	if err != nil {
+		t.Fatalf("ReadMetadata: %v", err)
+	}
+	if m.Title != original.Title {
+		t.Errorf("Title = %q, want %q", m.Title, original.Title)
+	}
+	if m.Author != original.Author {
+		t.Errorf("Author = %q, want %q", m.Author, original.Author)
+	}
+	if m.Publisher != original.Publisher {
+		t.Errorf("Publisher = %q, want %q", m.Publisher, original.Publisher)
+	}
+	if m.Language != original.Language {
+		t.Errorf("Language = %q, want %q", m.Language, original.Language)
+	}
+	if m.Description != original.Description {
+		t.Errorf("Description = %q, want %q", m.Description, original.Description)
+	}
+	if m.Subject != original.Subject {
+		t.Errorf("Subject = %q, want %q", m.Subject, original.Subject)
 	}
 }
 
@@ -302,6 +388,51 @@ func TestWriteMetadata_RoundTrip(t *testing.T) {
 	}
 	if m.Author != "Updated Author" {
 		t.Errorf("Author = %q, want %q", m.Author, "Updated Author")
+	}
+}
+
+func TestWriteMetadata_AllFieldsRoundTrip(t *testing.T) {
+	original := Metadata{
+		Title:       "Neuromancer",
+		Author:      "William Gibson",
+		Publisher:   "Ace Books",
+		Language:    "en",
+		Description: "A seminal cyberpunk novel.",
+		Subject:     "Cyberpunk, Science Fiction",
+	}
+	path := buildTestEPUBFull(t, original)
+
+	updated := Metadata{
+		FilePath:    path,
+		Title:       "Neuromancer (Updated)",
+		Author:      "W. Gibson",
+		Publisher:   "Ace",
+		Language:    "en-US",
+		Description: "A groundbreaking cyberpunk novel.",
+		Subject:     "Science Fiction",
+	}
+	if err := WriteMetadata(updated); err != nil {
+		t.Fatalf("WriteMetadata: %v", err)
+	}
+
+	m, err := ReadMetadata(path)
+	if err != nil {
+		t.Fatalf("ReadMetadata: %v", err)
+	}
+	if m.Title != updated.Title {
+		t.Errorf("Title = %q, want %q", m.Title, updated.Title)
+	}
+	if m.Publisher != updated.Publisher {
+		t.Errorf("Publisher = %q, want %q", m.Publisher, updated.Publisher)
+	}
+	if m.Language != updated.Language {
+		t.Errorf("Language = %q, want %q", m.Language, updated.Language)
+	}
+	if m.Description != updated.Description {
+		t.Errorf("Description = %q, want %q", m.Description, updated.Description)
+	}
+	if m.Subject != updated.Subject {
+		t.Errorf("Subject = %q, want %q", m.Subject, updated.Subject)
 	}
 }
 

@@ -13,9 +13,13 @@ import (
 
 // Metadata holds the editable metadata for an EPUB file.
 type Metadata struct {
-	Title    string
-	Author   string
-	FilePath string
+	Title       string
+	Author      string
+	Publisher   string
+	Language    string
+	Description string
+	Subject     string // multiple subjects joined by ", "
+	FilePath    string
 }
 
 // container.xml structure
@@ -27,16 +31,19 @@ type rootfile struct {
 	FullPath string `xml:"full-path,attr"`
 }
 
-// OPF package structure (enough to read/write title and creator)
+// OPF package structure (enough to read/write all supported fields)
 type opfPackage struct {
 	XMLName  xml.Name    `xml:"package"`
 	Metadata opfMetadata `xml:"metadata"`
-	raw      []byte      // original bytes for round-trip fidelity
 }
 
 type opfMetadata struct {
-	Titles   []string     `xml:"title"`
-	Creators []opfCreator `xml:"creator"`
+	Titles       []string     `xml:"title"`
+	Creators     []opfCreator `xml:"creator"`
+	Publishers   []string     `xml:"publisher"`
+	Languages    []string     `xml:"language"`
+	Descriptions []string     `xml:"description"`
+	Subjects     []string     `xml:"subject"`
 }
 
 type opfCreator struct {
@@ -45,7 +52,7 @@ type opfCreator struct {
 	ID   string `xml:"id,attr,omitempty"`
 }
 
-// ReadMetadata opens an EPUB file and extracts its title and author.
+// ReadMetadata opens an EPUB file and extracts its metadata.
 func ReadMetadata(path string) (Metadata, error) {
 	m := Metadata{FilePath: path}
 
@@ -76,11 +83,27 @@ func ReadMetadata(path string) (Metadata, error) {
 	if len(pkg.Metadata.Creators) > 0 {
 		m.Author = strings.TrimSpace(pkg.Metadata.Creators[0].Name)
 	}
+	if len(pkg.Metadata.Publishers) > 0 {
+		m.Publisher = strings.TrimSpace(pkg.Metadata.Publishers[0])
+	}
+	if len(pkg.Metadata.Languages) > 0 {
+		m.Language = strings.TrimSpace(pkg.Metadata.Languages[0])
+	}
+	if len(pkg.Metadata.Descriptions) > 0 {
+		m.Description = strings.TrimSpace(pkg.Metadata.Descriptions[0])
+	}
+	if len(pkg.Metadata.Subjects) > 0 {
+		subjects := make([]string, len(pkg.Metadata.Subjects))
+		for i, s := range pkg.Metadata.Subjects {
+			subjects[i] = strings.TrimSpace(s)
+		}
+		m.Subject = strings.Join(subjects, ", ")
+	}
 
 	return m, nil
 }
 
-// WriteMetadata updates the title and author in the EPUB's OPF file.
+// WriteMetadata updates the metadata fields in the EPUB's OPF file.
 // It writes atomically: builds a new zip in memory, then replaces the original.
 func WriteMetadata(m Metadata) error {
 	r, err := zip.OpenReader(m.FilePath)
@@ -107,7 +130,7 @@ func WriteMetadata(m Metadata) error {
 			}
 
 			// Patch metadata
-			updated, err := patchOPF(opfBytes, m.Title, m.Author)
+			updated, err := patchOPF(opfBytes, m)
 			if err != nil {
 				return fmt.Errorf("patch OPF: %w", err)
 			}
@@ -226,23 +249,36 @@ func readZipEntry(r *zip.ReadCloser, name string) ([]byte, error) {
 
 // patchOPF does a targeted string replacement on the raw OPF XML so that
 // namespace declarations and other formatting are preserved.
-func patchOPF(data []byte, title, author string) ([]byte, error) {
+func patchOPF(data []byte, m Metadata) ([]byte, error) {
 	s := string(data)
 
-	s, err := replaceFirstElement(s, "dc:title", title)
-	if err != nil {
-		// Element might not exist — inject it into <metadata>
-		s = injectElement(s, "dc:title", title)
-	}
+	// Fields that are always written (even if empty)
+	s = patchField(s, "dc:title", m.Title)
 
-	if author != "" {
-		s, err = replaceFirstElement(s, "dc:creator", author)
-		if err != nil {
-			s = injectElement(s, "dc:creator", author)
+	// Fields written only when non-empty, to avoid clobbering absent elements
+	for tag, value := range map[string]string{
+		"dc:creator":     m.Author,
+		"dc:publisher":   m.Publisher,
+		"dc:language":    m.Language,
+		"dc:description": m.Description,
+		"dc:subject":     m.Subject,
+	} {
+		if value != "" {
+			s = patchField(s, tag, value)
 		}
 	}
 
 	return []byte(s), nil
+}
+
+// patchField replaces the content of the first matching element, or injects
+// it before </metadata> if not present.
+func patchField(s, tag, value string) string {
+	result, err := replaceFirstElement(s, tag, value)
+	if err != nil {
+		return injectElement(s, tag, value)
+	}
+	return result
 }
 
 // replaceFirstElement replaces the text content of the first occurrence of

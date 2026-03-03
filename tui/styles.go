@@ -38,7 +38,7 @@ var (
 
 	labelStyle = lipgloss.NewStyle().
 			Foreground(gray).
-			Width(8)
+			Width(13)
 
 	focusedInputStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.NormalBorder()).

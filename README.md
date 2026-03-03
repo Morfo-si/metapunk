@@ -9,23 +9,42 @@ A terminal UI for editing EPUB metadata — fix titles and authors before upload
 
 - Scans the current directory for `.epub` files automatically
 - Displays a table with each file's filename, title, and author
-- Edit title and author with a clean form UI
+- Edit title, author, publisher, language, description, and subject with a clean form UI
 - Saves changes back into the EPUB file atomically (temp file + rename)
 - No external tools or epub libraries required — uses Go's standard library only
 
 ## Demo
 
+**List view** — browse all EPUBs in the current directory:
+
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  metapunk — EPUB Metadata Editor                                    │
-├──────────────────────────┬──────────────────────┬───────────────────┤
-│ File                     │ Title                │ Author            │
-├──────────────────────────┼──────────────────────┼───────────────────┤
-│ a-fire-upon-the-deep.epub│ A Fire Upon the Deep │ Vernor Vinge      │
-│ clean-code.epub          │ Clean Code           │ Robert C. Martin  │
-│ unknown.epub             │ (unknown)            │ (unknown)         │
-└──────────────────────────┴──────────────────────┴───────────────────┘
+╭──────────────────────────────────────────────────────────────────────╮
+│  metapunk — EPUB Metadata Editor                                     │
+├──────────────────────────┬──────────────────────┬────────────────────┤
+│ File                     │ Title                │ Author             │
+├──────────────────────────┼──────────────────────┼────────────────────┤
+│ a-fire-upon-the-deep.epub│ A Fire Upon the Deep │ Vernor Vinge       │
+│ clean-code.epub          │ Clean Code           │ Robert C. Martin   │
+│ unknown.epub             │ (unknown)            │ (unknown)          │
+└──────────────────────────┴──────────────────────┴────────────────────┘
 ↑/k up  ↓/j down  enter edit  r reload  q quit
+```
+
+**Editor view** — press `Enter` on any row to edit all metadata fields:
+
+```
+╭──────────────────────────────────────────────────────────────╮
+│  Editing: clean-code.epub                                    │
+│                                                              │
+│  Title         [ Clean Code                               ]  │
+│  Author        [ Robert C. Martin                         ]  │
+│  Publisher     [ Prentice Hall                            ]  │
+│  Language      [ en                                       ]  │
+│  Description   [ A handbook of agile software craftsman…  ]  │
+│  Subject       [ Software Engineering, Programming        ]  │
+│                                                              │
+│  tab next  shift+tab prev  ctrl+s save  esc cancel           │
+╰──────────────────────────────────────────────────────────────╯
 ```
 
 ## Installation
@@ -70,10 +89,13 @@ metapunk
 
 #### Editor view
 
+Six fields are available: Title, Author, Publisher, Language, Description, and Subject.
+For Subject, multiple values can be entered separated by commas (e.g. `Science Fiction, Fantasy`).
+
 | Key | Action |
 |-----|--------|
-| `Tab` | Next field |
-| `Shift+Tab` | Previous field |
+| `Tab` / `↓` | Next field |
+| `Shift+Tab` / `↑` | Previous field |
 | `Ctrl+S` | Save changes |
 | `Esc` | Cancel and return to list |
 
@@ -132,10 +154,14 @@ An EPUB file is a ZIP archive. Inside it, `META-INF/container.xml` points to an 
 <metadata>
   <dc:title>My Book</dc:title>
   <dc:creator opf:role="aut">Author Name</dc:creator>
+  <dc:publisher>Publisher Name</dc:publisher>
+  <dc:language>en</dc:language>
+  <dc:description>A short blurb about the book.</dc:description>
+  <dc:subject>Science Fiction</dc:subject>
 </metadata>
 ```
 
-`metapunk` edits this XML in place and re-packages the ZIP, leaving every other file in the archive untouched.
+`metapunk` edits these elements in place and re-packages the ZIP, leaving every other file in the archive untouched. Fields absent from the original OPF are injected automatically on first save.
 
 ## License
 
