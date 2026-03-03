@@ -3,13 +3,12 @@ package tui
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	purple    = lipgloss.Color("#7D56F4")
-	subtle    = lipgloss.Color("#383838")
-	highlight = lipgloss.Color("#EE6FF8")
-	green     = lipgloss.Color("#04B575")
-	red       = lipgloss.Color("#FF4672")
-	white     = lipgloss.Color("#FAFAFA")
-	gray      = lipgloss.Color("#626262")
+	purple = lipgloss.Color("#7D56F4")
+	subtle = lipgloss.Color("#383838")
+	green  = lipgloss.Color("#04B575")
+	red    = lipgloss.Color("#FF4672")
+	white  = lipgloss.Color("#FAFAFA")
+	gray   = lipgloss.Color("#626262")
 
 	titleBarStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -21,10 +20,6 @@ var (
 	tableStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(subtle)
-
-	selectedRowStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(highlight)
 
 	editorPanelStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.RoundedBorder()).
