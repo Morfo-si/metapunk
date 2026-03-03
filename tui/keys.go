@@ -3,11 +3,13 @@ package tui
 import "github.com/charmbracelet/bubbles/key"
 
 type listKeyMap struct {
-	Up     key.Binding
-	Down   key.Binding
-	Edit   key.Binding
-	Reload key.Binding
-	Quit   key.Binding
+	Up          key.Binding
+	Down        key.Binding
+	Edit        key.Binding
+	Reload      key.Binding
+	Search      key.Binding
+	ClearSearch key.Binding
+	Quit        key.Binding
 }
 
 var listKeys = listKeyMap{
@@ -26,6 +28,14 @@ var listKeys = listKeyMap{
 	Reload: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "reload"),
+	),
+	Search: key.NewBinding(
+		key.WithKeys("/"),
+		key.WithHelp("/", "search"),
+	),
+	ClearSearch: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "clear search"),
 	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),

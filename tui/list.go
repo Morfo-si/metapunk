@@ -8,6 +8,7 @@ import (
 
 	"github.com/Morfo-si/metapunk/epub"
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -17,16 +18,16 @@ type editMsg struct {
 	metadata epub.Metadata
 }
 
-// reloadMsg triggers a rescan of the directory.
-type reloadMsg struct{}
-
 // ListModel is the file-browser view.
 type ListModel struct {
-	table    table.Model
-	books    []epub.Metadata
-	dir      string
-	status   string
-	statusOK bool
+	table     table.Model
+	books     []epub.Metadata // full unfiltered list
+	filtered  []epub.Metadata // currently visible subset
+	search    textinput.Model
+	searching bool
+	dir       string
+	status    string
+	statusOK  bool
 }
 
 func NewListModel(dir string) ListModel {
@@ -55,9 +56,15 @@ func NewListModel(dir string) ListModel {
 		Bold(true)
 	t.SetStyles(s)
 
+	si := textinput.New()
+	si.Placeholder = "Filter by title or author…"
+	si.Prompt = ""
+	si.Width = 50
+
 	m := ListModel{
-		table: t,
-		dir:   dir,
+		table:  t,
+		search: si,
+		dir:    dir,
 	}
 	m.load()
 	return m
@@ -71,9 +78,27 @@ func (m *ListModel) load() {
 		return
 	}
 	m.books = books
+	m.applyFilter(m.search.Value())
+}
 
-	rows := make([]table.Row, len(books))
-	for i, b := range books {
+// applyFilter updates m.filtered and rebuilds the table rows to match query.
+func (m *ListModel) applyFilter(query string) {
+	query = strings.TrimSpace(strings.ToLower(query))
+
+	if query == "" {
+		m.filtered = m.books
+	} else {
+		m.filtered = nil
+		for _, b := range m.books {
+			if strings.Contains(strings.ToLower(b.Title), query) ||
+				strings.Contains(strings.ToLower(b.Author), query) {
+				m.filtered = append(m.filtered, b)
+			}
+		}
+	}
+
+	rows := make([]table.Row, len(m.filtered))
+	for i, b := range m.filtered {
 		title := b.Title
 		if title == "" {
 			title = "(unknown)"
@@ -89,6 +114,10 @@ func (m *ListModel) load() {
 		}
 	}
 	m.table.SetRows(rows)
+	// SetRows only clamps the cursor downward; reset to 0 if it went negative.
+	if len(rows) > 0 && m.table.Cursor() < 0 {
+		m.table.SetCursor(0)
+	}
 }
 
 func (m ListModel) Init() tea.Cmd {
@@ -98,41 +127,71 @@ func (m ListModel) Init() tea.Cmd {
 func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch {
-		case msg.String() == "q" || msg.String() == "ctrl+c":
+		// ctrl+c always quits regardless of search mode
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
-		case msg.String() == "enter":
-			if len(m.books) == 0 {
+		}
+
+		if m.searching {
+			switch msg.String() {
+			case "esc":
+				m.searching = false
+				m.search.Blur()
+				m.search.SetValue("")
+				m.applyFilter("")
+				return m, nil
+			case "enter":
+				if len(m.filtered) == 0 {
+					return m, nil
+				}
+				cursor := m.table.Cursor()
+				if cursor < 0 || cursor >= len(m.filtered) {
+					return m, nil
+				}
+				selected := m.filtered[cursor]
+				return m, func() tea.Msg { return editMsg{metadata: selected} }
+			default:
+				var cmd tea.Cmd
+				m.search, cmd = m.search.Update(msg)
+				m.applyFilter(m.search.Value())
+				return m, cmd
+			}
+		}
+
+		// Normal (non-search) mode
+		switch msg.String() {
+		case "q":
+			return m, tea.Quit
+		case "/":
+			m.searching = true
+			m.status = ""
+			return m, m.search.Focus()
+		case "enter":
+			if len(m.filtered) == 0 {
 				return m, nil
 			}
-			selected := m.books[m.table.Cursor()]
+			cursor := m.table.Cursor()
+			if cursor < 0 || cursor >= len(m.filtered) {
+				return m, nil
+			}
+			selected := m.filtered[cursor]
 			return m, func() tea.Msg { return editMsg{metadata: selected} }
-		case msg.String() == "r":
+		case "r":
+			m.search.SetValue("")
 			m.load()
 			return m, nil
 		}
+
 	case savedMsg:
-		// Update the in-memory book list entry and table row
+		// Update the canonical book list entry
 		for i, b := range m.books {
 			if b.FilePath == msg.metadata.FilePath {
 				m.books[i] = msg.metadata
-				row := m.table.Rows()[i]
-				title := msg.metadata.Title
-				if title == "" {
-					title = "(unknown)"
-				}
-				author := msg.metadata.Author
-				if author == "" {
-					author = "(unknown)"
-				}
-				row[1] = truncate(title, 32)
-				row[2] = truncate(author, 24)
-				rows := m.table.Rows()
-				rows[i] = row
-				m.table.SetRows(rows)
 				break
 			}
 		}
+		// Rebuild filtered view to reflect the update
+		m.applyFilter(m.search.Value())
 		m.status = fmt.Sprintf("Saved: %s", filepath.Base(msg.metadata.FilePath))
 		m.statusOK = true
 	}
@@ -148,6 +207,20 @@ func (m ListModel) View() string {
 	header := titleBarStyle.Render("metapunk — EPUB Metadata Editor")
 	subheader := helpStyle.Render("Directory: " + cwd)
 
+	var searchBar string
+	if m.searching {
+		label := searchLabelStyle.Render("Search: ")
+		input := searchBarStyle.Render(m.search.View())
+		searchBar = lipgloss.JoinHorizontal(lipgloss.Center, label, input)
+	}
+
+	var countLine string
+	if m.searching || m.search.Value() != "" {
+		countLine = searchCountStyle.Render(
+			fmt.Sprintf("%d of %d files", len(m.filtered), len(m.books)),
+		)
+	}
+
 	tableView := tableStyle.Render(m.table.View())
 
 	var statusLine string
@@ -159,19 +232,26 @@ func (m ListModel) View() string {
 		}
 	}
 
-	help := helpStyle.Render("↑/k up  ↓/j down  enter edit  r reload  q quit")
+	var help string
+	if m.searching {
+		help = helpStyle.Render("type to filter  enter edit  esc clear search")
+	} else {
+		help = helpStyle.Render("↑/k up  ↓/j down  enter edit  / search  r reload  q quit")
+	}
 
 	if len(m.books) == 0 {
 		empty := lipgloss.NewStyle().Foreground(gray).Italic(true).Render("No .epub files found in this directory.")
-		return lipgloss.JoinVertical(lipgloss.Left,
-			header,
-			subheader,
-			empty,
-			help,
-		)
+		return lipgloss.JoinVertical(lipgloss.Left, header, subheader, empty, help)
 	}
 
-	parts := []string{header, subheader, tableView}
+	parts := []string{header, subheader}
+	if searchBar != "" {
+		parts = append(parts, searchBar)
+	}
+	if countLine != "" {
+		parts = append(parts, countLine)
+	}
+	parts = append(parts, tableView)
 	if statusLine != "" {
 		parts = append(parts, statusLine)
 	}

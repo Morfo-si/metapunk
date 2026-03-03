@@ -48,6 +48,19 @@ var (
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderForeground(subtle)
 
+	searchBarStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(purple).
+			Padding(0, 1)
+
+	searchLabelStyle = lipgloss.NewStyle().
+				Foreground(purple).
+				Bold(true)
+
+	searchCountStyle = lipgloss.NewStyle().
+				Foreground(gray).
+				Italic(true)
+
 	statusOKStyle = lipgloss.NewStyle().
 			Foreground(green).
 			Bold(true)
