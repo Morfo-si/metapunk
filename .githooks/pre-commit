@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# pre-commit — runs fast local checks before every commit.
+# Install with: make hooks
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # no colour
+
+pass() { echo -e "${GREEN}✓${NC} $1"; }
+fail() { echo -e "${RED}✗${NC} $1"; exit 1; }
+info() { echo -e "${YELLOW}▶${NC} $1"; }
+
+info "Running pre-commit checks…"
+
+# 1. Dependencies tidy
+info "Checking go.mod / go.sum are tidy…"
+go mod tidy
+if ! git diff --quiet go.mod go.sum; then
+  fail "go.mod or go.sum changed after 'go mod tidy' — stage the changes and retry."
+fi
+pass "Dependencies tidy"
+
+# 2. Formatting
+info "Checking formatting…"
+unformatted=$(gofmt -l .)
+if [ -n "$unformatted" ]; then
+  echo "  Unformatted files:"
+  echo "$unformatted" | sed 's/^/    /'
+  fail "Run 'make fmt' to fix formatting, then stage and retry."
+fi
+pass "Formatting"
+
+# 3. Vet
+info "Running go vet…"
+if ! go vet ./...; then
+  fail "go vet reported issues."
+fi
+pass "go vet"
+
+# 4. Build
+info "Building…"
+if ! go build ./...; then
+  fail "Build failed."
+fi
+pass "Build"
+
+# 5. Tests
+info "Running tests…"
+if ! go test ./...; then
+  fail "Tests failed."
+fi
+pass "Tests"
+
+echo ""
+echo -e "${GREEN}All checks passed.${NC}"

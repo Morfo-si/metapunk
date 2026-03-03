@@ -4,7 +4,7 @@ CMD      := .
 GO       := go
 GOFLAGS  :=
 
-.PHONY: all build run test test-verbose test-cover lint fmt vet tidy clean install
+.PHONY: all build run test test-verbose test-cover lint fmt vet tidy clean install hooks
 
 ## all: build the binary (default target)
 all: build
@@ -53,6 +53,11 @@ tidy:
 ## install: install the binary to GOPATH/bin
 install:
 	$(GO) install $(GOFLAGS) $(MODULE)
+
+## hooks: install git hooks from .githooks/ into .git/hooks/
+hooks:
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed (core.hooksPath = .githooks)"
 
 ## clean: remove build artefacts
 clean:
