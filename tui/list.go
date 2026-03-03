@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Morfo-si/metapunk/epub"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -128,26 +129,26 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		// ctrl+c always quits regardless of search mode
-		if msg.String() == "ctrl+c" {
+		if key.Matches(msg, listKeys.ForceQuit) {
 			return m, tea.Quit
 		}
 
 		if m.searching {
-			switch msg.String() {
-			case "esc":
+			switch {
+			case key.Matches(msg, listKeys.ClearSearch):
 				m.searching = false
 				m.search.Blur()
 				m.search.SetValue("")
 				m.applyFilter("")
 				return m, nil
-			case "tab", "shift+tab":
+			case key.Matches(msg, listKeys.SwitchFocus):
 				if m.search.Focused() {
 					m.search.Blur()
 				} else {
 					return m, m.search.Focus()
 				}
 				return m, nil
-			case "enter":
+			case key.Matches(msg, listKeys.Edit):
 				if len(m.filtered) == 0 {
 					return m, nil
 				}
@@ -170,14 +171,14 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 		}
 
 		// Normal (non-search) mode
-		switch msg.String() {
-		case "q":
+		switch {
+		case key.Matches(msg, listKeys.Quit):
 			return m, tea.Quit
-		case "/":
+		case key.Matches(msg, listKeys.Search):
 			m.searching = true
 			m.status = ""
 			return m, m.search.Focus()
-		case "enter":
+		case key.Matches(msg, listKeys.Edit):
 			if len(m.filtered) == 0 {
 				return m, nil
 			}
@@ -187,7 +188,7 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 			}
 			selected := m.filtered[cursor]
 			return m, func() tea.Msg { return editMsg{metadata: selected} }
-		case "r":
+		case key.Matches(msg, listKeys.Reload):
 			m.search.SetValue("")
 			m.load()
 			return m, nil

@@ -8,8 +8,10 @@ type listKeyMap struct {
 	Edit        key.Binding
 	Reload      key.Binding
 	Search      key.Binding
+	SwitchFocus key.Binding
 	ClearSearch key.Binding
 	Quit        key.Binding
+	ForceQuit   key.Binding
 }
 
 var listKeys = listKeyMap{
@@ -33,13 +35,20 @@ var listKeys = listKeyMap{
 		key.WithKeys("/"),
 		key.WithHelp("/", "search"),
 	),
+	SwitchFocus: key.NewBinding(
+		key.WithKeys("tab", "shift+tab"),
+		key.WithHelp("tab", "switch focus"),
+	),
 	ClearSearch: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "clear search"),
 	),
 	Quit: key.NewBinding(
-		key.WithKeys("q", "ctrl+c"),
+		key.WithKeys("q"),
 		key.WithHelp("q", "quit"),
+	),
+	ForceQuit: key.NewBinding(
+		key.WithKeys("ctrl+c"),
 	),
 }
 
@@ -52,12 +61,12 @@ type editorKeyMap struct {
 
 var editorKeys = editorKeyMap{
 	NextField: key.NewBinding(
-		key.WithKeys("tab"),
-		key.WithHelp("tab", "next field"),
+		key.WithKeys("tab", "down"),
+		key.WithHelp("tab/↓", "next field"),
 	),
 	PrevField: key.NewBinding(
-		key.WithKeys("shift+tab"),
-		key.WithHelp("shift+tab", "prev field"),
+		key.WithKeys("shift+tab", "up"),
+		key.WithHelp("shift+tab/↑", "prev field"),
 	),
 	Save: key.NewBinding(
 		key.WithKeys("ctrl+s"),

@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/Morfo-si/metapunk/epub"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -75,11 +76,11 @@ func (e EditorModel) Init() tea.Cmd {
 func (e EditorModel) Update(msg tea.Msg) (EditorModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
+		switch {
+		case key.Matches(msg, editorKeys.Cancel):
 			return e, func() tea.Msg { return cancelMsg{} }
 
-		case "ctrl+s":
+		case key.Matches(msg, editorKeys.Save):
 			if e.saving {
 				return e, nil
 			}
@@ -96,11 +97,11 @@ func (e EditorModel) Update(msg tea.Msg) (EditorModel, tea.Cmd) {
 			}
 			return e, saveCmd(updated)
 
-		case "tab", "down":
+		case key.Matches(msg, editorKeys.NextField):
 			e.focused = (e.focused + 1) % numFields
 			return e, e.syncFocus()
 
-		case "shift+tab", "up":
+		case key.Matches(msg, editorKeys.PrevField):
 			e.focused = (e.focused - 1 + numFields) % numFields
 			return e, e.syncFocus()
 		}
