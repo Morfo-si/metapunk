@@ -13,6 +13,7 @@ A terminal UI for editing EPUB metadata — fix titles and authors before upload
 
 - Scans the current directory for `.epub` files automatically
 - Displays a table with each file's filename, title, and author
+- **Live search** — filter the list by title or author in real time; press `Esc` to clear
 - Edit title, author, publisher, language, description, and subject with a clean form UI
 - Saves changes back into the EPUB file atomically (temp file + rename)
 - No external tools or epub libraries required — uses Go's standard library only
@@ -31,7 +32,22 @@ A terminal UI for editing EPUB metadata — fix titles and authors before upload
 │ clean-code.epub          │ Clean Code           │ Robert C. Martin   │
 │ unknown.epub             │ (unknown)            │ (unknown)          │
 └──────────────────────────┴──────────────────────┴────────────────────┘
-↑/k up  ↓/j down  enter edit  r reload  q quit
+↑/k up  ↓/j down  enter edit  / search  r reload  q quit
+```
+
+**Search** — press `/` to filter by title or author in real time:
+
+```
+╭──────────────────────────────────────────────────────────────────────╮
+│  metapunk — EPUB Metadata Editor                                     │
+│  Search:  [ clean                                   ]                │
+│  1 of 3 files                                                        │
+├──────────────────────────┬──────────────────────┬────────────────────┤
+│ File                     │ Title                │ Author             │
+├──────────────────────────┼──────────────────────┼────────────────────┤
+│ clean-code.epub          │ Clean Code           │ Robert C. Martin   │
+└──────────────────────────┴──────────────────────┴────────────────────┘
+type to filter  enter edit  esc clear search
 ```
 
 **Editor view** — press `Enter` on any row to edit all metadata fields:
@@ -88,8 +104,18 @@ metapunk
 | `↑` / `k` | Move up |
 | `↓` / `j` | Move down |
 | `Enter` | Edit selected file |
+| `/` | Activate search |
 | `r` | Reload directory |
 | `q` / `Ctrl+C` | Quit |
+
+#### Search mode
+
+| Key | Action |
+|-----|--------|
+| *(type)* | Filter by title or author (case-insensitive, partial match) |
+| `Enter` | Edit the highlighted result |
+| `Esc` | Clear search and return to full list |
+| `Ctrl+C` | Quit |
 
 #### Editor view
 
