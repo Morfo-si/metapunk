@@ -12,10 +12,10 @@ func TestTruncate(t *testing.T) {
 		{"exactly10c", 10, "exactly10c"},
 		{"this is a very long string", 10, "this is a…"},
 		{"", 5, ""},
-		{"  spaces  ", 10, "spaces"},    // TrimSpace applied first
-		{"abcde", 5, "abcde"},           // exactly at limit
-		{"abcdef", 5, "abcd…"},          // one over
-		{"日本語テスト", 4, "日本語…"},          // multibyte runes
+		{"  spaces  ", 10, "spaces"}, // TrimSpace applied first
+		{"abcde", 5, "abcde"},        // exactly at limit
+		{"abcdef", 5, "abcd…"},       // one over
+		{"日本語テスト", 4, "日本語…"},        // multibyte runes
 	}
 	for _, tc := range cases {
 		got := truncate(tc.input, tc.max)
