@@ -1,5 +1,9 @@
 # metapunk
 
+<p align="center">
+  <img src="metapunk-logo.png" alt="metapunk logo" width="200" />
+</p>
+
 A terminal UI for editing EPUB metadata — fix titles and authors before uploading to Kindle or any other e-reader app.
 
 ![Go version](https://img.shields.io/badge/go-1.26-blue)
