@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Morfo-si/metapunk/tui"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/morfo-si/metapunk/tui"
 )
 
 func main() {

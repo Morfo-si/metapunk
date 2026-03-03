@@ -7,7 +7,7 @@
 A terminal UI for editing EPUB metadata — fix titles and authors before uploading to Kindle or any other e-reader app.
 
 ![Go version](https://img.shields.io/badge/go-1.26-blue)
-[![PR Checks](https://github.com/morfo-si/metapunk/actions/workflows/pr.yml/badge.svg)](https://github.com/morfo-si/metapunk/actions/workflows/pr.yml)
+[![PR Checks](https://github.com/Morfo-si/metapunk/actions/workflows/pr.yml/badge.svg)](https://github.com/Morfo-si/metapunk/actions/workflows/pr.yml)
 
 ## Features
 
@@ -58,7 +58,7 @@ A terminal UI for editing EPUB metadata — fix titles and authors before upload
 Requires Go 1.26 or later.
 
 ```bash
-git clone https://github.com/morfo-si/metapunk.git
+git clone https://github.com/Morfo-si/metapunk.git
 cd metapunk
 make install
 ```

@@ -3,10 +3,10 @@ package tui
 import (
 	"path/filepath"
 
+	"github.com/Morfo-si/metapunk/epub"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/morfo-si/metapunk/epub"
 )
 
 // savedMsg is sent when a save completes successfully.

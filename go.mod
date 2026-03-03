@@ -1,4 +1,4 @@
-module github.com/morfo-si/metapunk
+module github.com/Morfo-si/metapunk
 
 go 1.26.0
 

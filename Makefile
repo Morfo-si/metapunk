@@ -1,5 +1,5 @@
 BINARY   := metapunk
-MODULE   := github.com/morfo-si/metapunk
+MODULE   := github.com/Morfo-si/metapunk
 CMD      := .
 GO       := go
 GOFLAGS  :=

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Morfo-si/metapunk/epub"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/morfo-si/metapunk/epub"
 )
 
 // ── helpers ───────────────────────────────────────────────────────────────────

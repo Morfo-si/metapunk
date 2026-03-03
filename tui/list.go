@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Morfo-si/metapunk/epub"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/morfo-si/metapunk/epub"
 )
 
 // editMsg is sent when the user selects a file to edit.
