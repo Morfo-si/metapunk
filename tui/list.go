@@ -234,6 +234,10 @@ func (m ListModel) View() string {
 		countLine = searchCountStyle.Render(
 			fmt.Sprintf("%d of %d files", len(m.filtered), len(m.books)),
 		)
+	} else {
+		countLine = searchCountStyle.Render(
+			fmt.Sprintf("%d files", len(m.books)),
+		)
 	}
 
 	tableView := tableStyle.Render(m.table.View())
@@ -260,7 +264,7 @@ func (m ListModel) View() string {
 
 	if len(m.books) == 0 {
 		empty := lipgloss.NewStyle().Foreground(gray).Italic(true).Render("No .epub files found in this directory.")
-		return lipgloss.JoinVertical(lipgloss.Left, header, subheader, empty, help)
+		return lipgloss.JoinVertical(lipgloss.Left, header, subheader, countLine, empty, help)
 	}
 
 	parts := []string{header, subheader}
