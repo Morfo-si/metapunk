@@ -146,6 +146,18 @@ func TestReplaceFirstElement(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "malformed — no closing gt on opening tag",
+			s:       `<dc:title`,
+			tag:     "dc:title",
+			wantErr: true,
+		},
+		{
+			name:    "missing closing tag",
+			s:       `<dc:title>No close`,
+			tag:     "dc:title",
+			wantErr: true,
+		},
+		{
 			name:  "only first occurrence replaced",
 			s:     `<dc:title>First</dc:title><dc:title>Second</dc:title>`,
 			tag:   "dc:title",
@@ -529,6 +541,71 @@ func TestScanDir_InvalidDir(t *testing.T) {
 	_, err := ScanDir("/nonexistent/directory")
 	if err == nil {
 		t.Error("expected error for nonexistent directory, got nil")
+	}
+}
+
+func TestReadMetadata_MalformedContainerXML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.epub")
+
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	add := func(name, content string) {
+		f, _ := w.Create(name)
+		f.Write([]byte(content))
+	}
+	add("mimetype", "application/epub+zip")
+	add("META-INF/container.xml", "<<<not xml>>>")
+	w.Close()
+	os.WriteFile(path, buf.Bytes(), 0644)
+
+	_, err := ReadMetadata(path)
+	if err == nil {
+		t.Error("expected error for malformed container.xml, got nil")
+	}
+}
+
+func TestReadMetadata_MalformedOPFXML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.epub")
+
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	add := func(name, content string) {
+		f, _ := w.Create(name)
+		f.Write([]byte(content))
+	}
+	add("mimetype", "application/epub+zip")
+	add("META-INF/container.xml", containerXML)
+	add("OEBPS/content.opf", "<<<not xml>>>")
+	w.Close()
+	os.WriteFile(path, buf.Bytes(), 0644)
+
+	_, err := ReadMetadata(path)
+	if err == nil {
+		t.Error("expected error for malformed OPF XML, got nil")
+	}
+}
+
+func TestReadMetadata_MissingOPFFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.epub")
+
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	add := func(name, content string) {
+		f, _ := w.Create(name)
+		f.Write([]byte(content))
+	}
+	add("mimetype", "application/epub+zip")
+	// container.xml points to OEBPS/content.opf but the file is absent
+	add("META-INF/container.xml", containerXML)
+	w.Close()
+	os.WriteFile(path, buf.Bytes(), 0644)
+
+	_, err := ReadMetadata(path)
+	if err == nil {
+		t.Error("expected error when OPF file is missing from zip, got nil")
 	}
 }
 
