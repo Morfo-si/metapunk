@@ -3,6 +3,7 @@
 #
 # Build output
 metapunk
+dist/
 
 # EPUB files
 *.epub
