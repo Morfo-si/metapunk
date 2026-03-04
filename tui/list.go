@@ -29,9 +29,13 @@ type ListModel struct {
 	dir       string
 	status    string
 	statusOK  bool
+	width     int
+	height    int
 }
 
 func NewListModel(dir string) ListModel {
+	// Columns and height start at sensible defaults; they are updated on the
+	// first tea.WindowSizeMsg before anything is rendered.
 	cols := []table.Column{
 		{Title: "File", Width: 24},
 		{Title: "Title", Width: 34},
@@ -71,6 +75,56 @@ func NewListModel(dir string) ListModel {
 	return m
 }
 
+// resize adapts the table height and column widths to the current terminal
+// dimensions. It should be called whenever a tea.WindowSizeMsg is received.
+//
+// Fixed vertical overhead (lines consumed by non-table UI elements):
+//
+//	header(1) + header-margin(1) + subheader-margin(1) + subheader(1) +
+//	count(1) + table-top-border(1) + table-header(1) + table-header-underline(1) +
+//	table-bottom-border(1) + help-margin(1) + help(1) = 11 lines
+//
+// One extra line is reserved to absorb the optional status line without
+// causing the layout to overflow.
+func (m *ListModel) resize(w, h int) {
+	m.width = w
+	m.height = h
+
+	tableH := h - 12
+	if tableH < 3 {
+		tableH = 3
+	}
+	m.table.SetHeight(tableH)
+
+	// Distribute horizontal space between the three columns.
+	// The tableStyle rounded border consumes 2 chars (left + right).
+	inner := w - 2
+	if inner < 50 {
+		inner = 50
+	}
+	fileW := 24
+	if fileW > inner/4 {
+		fileW = inner / 4
+	}
+	rest := inner - fileW
+	titleW := rest * 55 / 100
+	authorW := rest - titleW
+	m.table.SetColumns([]table.Column{
+		{Title: "File", Width: fileW},
+		{Title: "Title", Width: titleW},
+		{Title: "Author", Width: authorW},
+	})
+
+	// Keep the search input roughly in proportion to the window width.
+	m.search.Width = w - 22
+	if m.search.Width < 20 {
+		m.search.Width = 20
+	}
+
+	// Re-render rows so truncation matches the new column widths.
+	m.applyFilter(m.search.Value())
+}
+
 func (m *ListModel) load() {
 	books, err := epub.ScanDir(m.dir)
 	if err != nil {
@@ -98,6 +152,14 @@ func (m *ListModel) applyFilter(query string) {
 		}
 	}
 
+	cols := m.table.Columns()
+	fileW, titleW, authorW := 22, 32, 24
+	if len(cols) == 3 {
+		fileW = cols[0].Width - 2
+		titleW = cols[1].Width - 2
+		authorW = cols[2].Width - 2
+	}
+
 	rows := make([]table.Row, len(m.filtered))
 	for i, b := range m.filtered {
 		title := b.Title
@@ -109,9 +171,9 @@ func (m *ListModel) applyFilter(query string) {
 			author = "(unknown)"
 		}
 		rows[i] = table.Row{
-			truncate(filepath.Base(b.FilePath), 22),
-			truncate(title, 32),
-			truncate(author, 24),
+			truncate(filepath.Base(b.FilePath), fileW),
+			truncate(title, titleW),
+			truncate(author, authorW),
 		}
 	}
 	m.table.SetRows(rows)
@@ -127,6 +189,10 @@ func (m ListModel) Init() tea.Cmd {
 
 func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.resize(msg.Width, msg.Height)
+		return m, nil
+
 	case tea.KeyMsg:
 		// ctrl+c always quits regardless of search mode
 		if key.Matches(msg, listKeys.ForceQuit) {
@@ -188,6 +254,16 @@ func (m ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 			}
 			selected := m.filtered[cursor]
 			return m, func() tea.Msg { return editMsg{metadata: selected} }
+		case key.Matches(msg, listKeys.Open):
+			if len(m.filtered) == 0 {
+				return m, nil
+			}
+			cursor := m.table.Cursor()
+			if cursor < 0 || cursor >= len(m.filtered) {
+				return m, nil
+			}
+			selected := m.filtered[cursor]
+			return m, func() tea.Msg { return openReaderMsg{metadata: selected} }
 		case key.Matches(msg, listKeys.Reload):
 			m.search.SetValue("")
 			m.load()
@@ -260,7 +336,7 @@ func (m ListModel) View() string {
 			help = helpStyle.Render("↑/↓ navigate  enter edit  tab → search  esc clear")
 		}
 	} else {
-		help = helpStyle.Render("↑/k up  ↓/j down  enter edit  / search  r reload  q quit")
+		help = helpStyle.Render("↑/k up  ↓/j down  enter edit  o read  / search  r reload  q quit")
 	}
 
 	if len(m.books) == 0 {

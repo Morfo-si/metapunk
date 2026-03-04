@@ -72,4 +72,23 @@ var (
 	helpStyle = lipgloss.NewStyle().
 			Foreground(gray).
 			MarginTop(1)
+
+	// Reader-specific styles.
+	readerChapterStyle = lipgloss.NewStyle().
+				Foreground(gray).
+				Italic(true)
+
+	searchMatchStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#8A6500")).
+				Foreground(white)
+
+	searchCurrentMatchStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("#FFB300")).
+				Foreground(lipgloss.Color("#1A1A1A")).
+				Bold(true)
+
+	bookmarkOverlayStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(purple).
+				Padding(1, 2)
 )

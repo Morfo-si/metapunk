@@ -4,7 +4,7 @@
   <img src="metapunk-logo.png" alt="metapunk logo" width="200" />
 </p>
 
-A terminal UI for editing EPUB metadata — fix titles and authors before uploading to Kindle or any other e-reader app.
+A terminal UI for managing and reading EPUB files — edit metadata, or open any book and read it right in your terminal with pagination, search, and bookmarks.
 
 ![Go version](https://img.shields.io/badge/go-1.26-blue)
 [![PR Checks](https://github.com/Morfo-si/metapunk/actions/workflows/pr.yml/badge.svg)](https://github.com/Morfo-si/metapunk/actions/workflows/pr.yml)
@@ -16,6 +16,10 @@ A terminal UI for editing EPUB metadata — fix titles and authors before upload
 - **Live search** — filter the list by title or author in real time; press `Esc` to clear
 - Edit title, author, publisher, language, description, and subject with a clean form UI
 - Saves changes back into the EPUB file atomically (temp file + rename)
+- **Built-in reader** — open any book with `o` and read it in the terminal with a paginated viewport
+- **In-reader search** — press `/` to search within a chapter; `n`/`N` jump between highlighted matches
+- **Bookmarks** — press `m` to bookmark any position; `M` opens the bookmark browser to jump back or delete
+- Reading position is auto-saved and restored when you reopen a book
 - No external tools or epub libraries required — uses Go's standard library only
 
 ## Demo
@@ -32,7 +36,7 @@ A terminal UI for editing EPUB metadata — fix titles and authors before upload
 │ clean-code.epub          │ Clean Code           │ Robert C. Martin   │
 │ unknown.epub             │ (unknown)            │ (unknown)          │
 └──────────────────────────┴──────────────────────┴────────────────────┘
-↑/k up  ↓/j down  enter edit  / search  r reload  q quit
+↑/k up  ↓/j down  enter edit  o read  / search  r reload  q quit
 ```
 
 **Search** — press `/` to filter by title or author in real time:
@@ -48,6 +52,25 @@ A terminal UI for editing EPUB metadata — fix titles and authors before upload
 │ clean-code.epub          │ Clean Code           │ Robert C. Martin   │
 └──────────────────────────┴──────────────────────┴────────────────────┘
 type to filter  enter edit  esc clear search
+```
+
+**Reader view** — press `o` on any row to read the book in the terminal:
+
+```
+ metapunk — A Fire Upon the Deep · Vernor Vinge
+ Chapter 1  [1 / 32]  0%
+ ╭──────────────────────────────────────────────────────────────────────╮
+ │                                                                      │
+ │  Part One                                                            │
+ │                                                                      │
+ │  THE SLOWNESS                                                        │
+ │                                                                      │
+ │  How to explain? How to describe? Even the omniscient viewpoint      │
+ │  bogs down trying to tell of the Beginning. There was the vast       │
+ │  Slowness of the Deep and there were the Zones of Thought...        │
+ │                                                                      │
+ ╰──────────────────────────────────────────────────────────────────────╯
+space/b scroll  →/← chapter  / search  n/N match  m bookmark  M list  q back
 ```
 
 **Editor view** — press `Enter` on any row to edit all metadata fields:
@@ -103,7 +126,8 @@ metapunk
 |-----|--------|
 | `↑` / `k` | Move up |
 | `↓` / `j` | Move down |
-| `Enter` | Edit selected file |
+| `Enter` | Edit selected file's metadata |
+| `o` | Open selected file in the reader |
 | `/` | Activate search |
 | `r` | Reload directory |
 | `q` / `Ctrl+C` | Quit |
@@ -128,6 +152,27 @@ Search has two focus states toggled with `Tab`:
 | `Enter` | Edit the highlighted result |
 | `Tab` / `Shift+Tab` | Move focus back to search input |
 | `Esc` | Clear search and return to full list |
+
+#### Reader view
+
+| Key | Action |
+|-----|--------|
+| `Space` / `PageDown` | Scroll down half a page |
+| `b` / `PageUp` | Scroll up half a page |
+| `↓` / `j` | Scroll down one line |
+| `↑` / `k` | Scroll up one line |
+| `→` / `l` | Next chapter (position auto-saved) |
+| `←` / `h` | Previous chapter (position auto-saved) |
+| `/` | Open search input |
+| `Enter` | Confirm search query |
+| `n` | Jump to next match |
+| `N` | Jump to previous match |
+| `m` | Add bookmark at current position |
+| `M` | Open bookmark browser |
+| `d` *(in browser)* | Delete selected bookmark |
+| `Enter` *(in browser)* | Jump to selected bookmark |
+| `Esc` | Clear search / close bookmark browser |
+| `q` | Return to the book list |
 
 #### Editor view
 
@@ -169,11 +214,14 @@ metapunk/
 ├── main.go              — entry point
 ├── epub/
 │   ├── epub.go          — ReadMetadata, WriteMetadata, ScanDir
+│   ├── reader.go        — ReadChapters, extractText (OPF spine → plain text)
+│   ├── bookmarks.go     — BookmarkState, LoadBookmarks, SaveBookmarks
 │   └── epub_test.go     — unit and integration tests
 └── tui/
-    ├── app.go           — root model, routes between views
+    ├── app.go           — root model, routes between list / editor / reader views
     ├── list.go          — file browser (bubbles/table)
     ├── editor.go        — metadata form (bubbles/textinput)
+    ├── reader.go        — epub reader (bubbles/viewport, search, bookmarks)
     ├── keys.go          — key binding definitions
     ├── styles.go        — lipgloss colour palette and styles
     └── list_test.go     — tests for pure TUI helpers
@@ -184,9 +232,10 @@ metapunk/
 | Library | Purpose |
 |---------|---------|
 | [bubbletea](https://github.com/charmbracelet/bubbletea) | Elm-architecture TUI framework |
-| [bubbles](https://github.com/charmbracelet/bubbles) | Table, text input, and key binding components |
+| [bubbles](https://github.com/charmbracelet/bubbles) | Table, text input, viewport, and key binding components |
 | [lipgloss](https://github.com/charmbracelet/lipgloss) | Styles, borders, and layout |
-| `archive/zip` + `encoding/xml` | EPUB read/write (stdlib only) |
+| `archive/zip` + `encoding/xml` | EPUB read/write and content extraction (stdlib only) |
+| `encoding/json` + `os.UserConfigDir` | Bookmark persistence (`~/.config/metapunk/bookmarks.json`) |
 
 ## How EPUB metadata is stored
 
